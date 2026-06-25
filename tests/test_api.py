@@ -11,7 +11,7 @@ def test_health_ok():
     res = client.get("/health")
     assert res.status_code == 200
     body = res.json()
-    assert body["status"] == "ok"
+    assert body["status"] == "healthy"
     assert body["service"] == "queuestorm"
     assert "uptime_seconds" in body
 

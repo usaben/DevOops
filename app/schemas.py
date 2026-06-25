@@ -77,7 +77,7 @@ class SortTicketResponse(BaseModel):
 
 
 class HealthResponse(BaseModel):
-    status: Literal["ok"] = "ok"
+    status: Literal["healthy", "ok"] = "healthy"
     service: str
     version: str
     uptime_seconds: float

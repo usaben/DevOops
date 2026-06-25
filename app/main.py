@@ -113,7 +113,7 @@ async def unhandled_exc_handler(_: Request, exc: Exception) -> JSONResponse:
 async def health() -> HealthResponse:
     """Liveness probe — must respond within 10 seconds per spec."""
     return HealthResponse(
-        status="ok",
+        status="healthy",
         service="queuestorm",
         version=__version__,
         uptime_seconds=round(time.monotonic() - _START_TIME, 2),
