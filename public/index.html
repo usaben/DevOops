@@ -3,85 +3,125 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>QueueStorm — API Tester</title>
+<title>QueueStorm Investigator — API Tester</title>
+<meta name="description" content="QueueStorm Investigator — AI-powered customer support ticket triage for fintech. Test the /analyze-ticket API live." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
     --bg:#0b0d12; --panel:#131722; --panel2:#1a2030; --border:#232a3d;
     --text:#e7ecf3; --muted:#93a0b8; --accent:#e2136e; --ok:#2ecc71;
     --warn:#f1c40f; --danger:#ff5252; --code:#0d1018;
+    --gradient: linear-gradient(135deg, #e2136e 0%, #ff6b6b 100%);
   }
-  *{box-sizing:border-box}
-  html,body{margin:0;background:var(--bg);color:var(--text);
-    font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;line-height:1.5}
-  header{padding:32px 24px 16px;text-align:center;border-bottom:1px solid var(--border)}
-  h1{margin:0;font-size:24px;letter-spacing:-.02em}
-  h1 span{color:var(--accent)}
-  main{max-width:880px;margin:0 auto;padding:24px}
-  .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:18px}
-  .card h2{margin:0 0 6px;font-size:16px}
-  .card p.hint{margin:0 0 14px;color:var(--muted);font-size:13px}
-  label{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px;
-    font-weight:600;letter-spacing:.04em;text-transform:uppercase}
-  input,textarea{width:100%;background:var(--panel2);color:var(--text);
-    border:1px solid var(--border);border-radius:8px;padding:10px;font:inherit;outline:none}
-  input:focus,textarea:focus{border-color:var(--accent)}
-  textarea{min-height:120px;resize:vertical;font-family:Consolas,monospace;font-size:13px}
-  .row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
-  @media(max-width:560px){.row{grid-template-columns:1fr}}
-  .btn{appearance:none;border:0;cursor:pointer;padding:11px 16px;border-radius:8px;
-    font-weight:600;font-size:14px;background:var(--accent);color:#fff;margin-top:14px}
-  .btn:disabled{opacity:.6;cursor:not-allowed}
+  *{box-sizing:border-box;margin:0}
+  html,body{background:var(--bg);color:var(--text);
+    font-family:'Inter',system-ui,-apple-system,sans-serif;line-height:1.6}
+  header{padding:32px 24px 20px;text-align:center;border-bottom:1px solid var(--border);
+    background:linear-gradient(180deg,rgba(226,19,110,.06) 0%,transparent 100%)}
+  h1{font-size:26px;letter-spacing:-.03em;font-weight:700}
+  h1 span{background:var(--gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+  main{max-width:920px;margin:0 auto;padding:24px}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:22px;margin-bottom:18px;
+    transition:border-color .2s}
+  .card:hover{border-color:rgba(226,19,110,.3)}
+  .card h2{font-size:15px;font-weight:600;margin-bottom:4px}
+  .card p.hint{color:var(--muted);font-size:13px;margin-bottom:14px}
+  label{display:block;font-size:11px;color:var(--muted);margin:12px 0 4px;
+    font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+  input,textarea,select{width:100%;background:var(--panel2);color:var(--text);
+    border:1px solid var(--border);border-radius:8px;padding:10px 12px;font:inherit;outline:none;
+    font-size:13.5px;transition:border-color .2s}
+  input:focus,textarea:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(226,19,110,.15)}
+  textarea{min-height:100px;resize:vertical;font-family:'Consolas','Monaco',monospace;font-size:13px}
+  .row{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px}
+  @media(max-width:640px){.row{grid-template-columns:1fr 1fr}}
+  .btn{appearance:none;border:0;cursor:pointer;padding:12px 20px;border-radius:8px;
+    font-weight:600;font-size:14px;background:var(--gradient);color:#fff;
+    transition:transform .1s,box-shadow .2s}
+  .btn:hover{transform:translateY(-1px);box-shadow:0 4px 16px rgba(226,19,110,.3)}
+  .btn:active{transform:translateY(0)}
+  .btn:disabled{opacity:.6;cursor:not-allowed;transform:none}
   .btn.ghost{background:transparent;color:var(--muted);border:1px solid var(--border);margin-left:8px}
-  pre{background:var(--code);border:1px solid var(--border);border-radius:8px;
-    padding:12px;font-size:12.5px;overflow:auto;max-height:360px;margin:0}
-  .status{display:inline-block;padding:3px 9px;border-radius:999px;font-size:12px;font-weight:600}
-  .status.ok{background:rgba(46,204,113,.15);color:var(--ok)}
-  .status.err{background:rgba(255,82,82,.15);color:var(--danger)}
-  footer{text-align:center;color:var(--muted);font-size:12px;padding:20px}
-  code{background:var(--panel2);padding:1px 5px;border-radius:4px}
+  .btn.ghost:hover{border-color:var(--accent);color:var(--text)}
+  pre{background:var(--code);border:1px solid var(--border);border-radius:10px;
+    padding:14px;font-size:12.5px;overflow:auto;max-height:420px;line-height:1.5;
+    font-family:'Consolas','Monaco',monospace}
+  .status{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600}
+  .status.ok{background:rgba(46,204,113,.12);color:var(--ok)}
+  .status.err{background:rgba(255,82,82,.12);color:var(--danger)}
+  footer{text-align:center;color:var(--muted);font-size:12px;padding:24px;border-top:1px solid var(--border);margin-top:12px}
+  code{background:var(--panel2);padding:1px 6px;border-radius:4px;font-size:12.5px}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .sample-bar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+  .sample-btn{font-size:11px;padding:4px 10px;border-radius:6px;background:var(--panel2);
+    color:var(--muted);border:1px solid var(--border);cursor:pointer;transition:.2s}
+  .sample-btn:hover{border-color:var(--accent);color:var(--text)}
+  .sample-btn.active{background:rgba(226,19,110,.12);border-color:var(--accent);color:var(--accent)}
+  .txn-hint{color:var(--muted);font-size:11px;font-style:italic;margin-top:4px}
 </style>
 </head>
 <body>
 
 <header>
-  <h1>Queue<span>Storm</span> · API Tester</h1>
-  <p style="margin:6px 0 0;color:var(--muted);font-size:13.5px">
-    Live endpoint: <code id="origin"></code>
+  <h1>Queue<span>Storm</span> Investigator · API Tester</h1>
+  <p style="margin-top:6px;color:var(--muted);font-size:13px">
+    Live endpoint: <code id="origin"></code> · POST <code>/analyze-ticket</code>
   </p>
 </header>
 
 <main>
   <div class="card">
-    <h2>POST /sort-ticket</h2>
-    <p class="hint">Send one ticket to the live backend. The page calls the same host so it works whether you run locally or on Render.</p>
+    <h2>POST /analyze-ticket</h2>
+    <p class="hint">Send one ticket to the live backend. Load a sample case or type your own.</p>
+
+    <label>Load sample case</label>
+    <div class="sample-bar" id="sampleBar"></div>
 
     <div class="row">
       <div>
         <label>ticket_id</label>
-        <input id="ticket_id" value="T-001" />
+        <input id="ticket_id" value="TKT-001" />
       </div>
       <div>
-        <label>channel</label>
-        <select id="channel" style="width:100%;background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px">
-          <option value="">—</option><option value="app">app</option>
-          <option value="sms">sms</option><option value="call_center">call_center</option>
-          <option value="merchant_portal">merchant_portal</option>
+        <label>language</label>
+        <select id="language">
+          <option value="">—</option><option value="en" selected>en</option>
+          <option value="bn">bn</option><option value="mixed">mixed</option>
         </select>
       </div>
       <div>
-        <label>locale</label>
-        <select id="locale" style="width:100%;background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px">
-          <option value="">—</option><option value="en">en</option>
-          <option value="bn">bn</option><option value="mixed">mixed</option>
+        <label>channel</label>
+        <select id="channel">
+          <option value="">—</option><option value="in_app_chat" selected>in_app_chat</option>
+          <option value="call_center">call_center</option><option value="email">email</option>
+          <option value="merchant_portal">merchant_portal</option><option value="field_agent">field_agent</option>
+        </select>
+      </div>
+      <div>
+        <label>user_type</label>
+        <select id="user_type">
+          <option value="">—</option><option value="customer" selected>customer</option>
+          <option value="merchant">merchant</option><option value="agent">agent</option>
+          <option value="unknown">unknown</option>
         </select>
       </div>
     </div>
 
-    <label>message</label>
-    <textarea id="message">I sent 5000 taka to a wrong number this morning, please help me get it back</textarea>
+    <label>complaint</label>
+    <textarea id="complaint">I sent 5000 taka to a wrong number around 2pm today. Please help me get my money back.</textarea>
 
-    <button class="btn" id="runBtn">Triage ▸</button>
-    <button class="btn ghost" id="resetBtn">Reset</button>
+    <label>transaction_history <span style="font-weight:400;text-transform:none">(JSON array)</span></label>
+    <textarea id="txn_history" style="min-height:80px">[
+  {"transaction_id":"TXN-9101","timestamp":"2026-04-14T14:08:22Z","type":"transfer","amount":5000,"counterparty":"+8801719876543","status":"completed"}
+]</textarea>
+    <p class="txn-hint">Paste a JSON array of transaction objects, or leave empty <code>[]</code> for no history.</p>
+
+    <div style="margin-top:16px">
+      <button class="btn" id="runBtn">Analyze ▸</button>
+      <button class="btn ghost" id="resetBtn">Reset</button>
+    </div>
   </div>
 
   <div class="card">
@@ -90,87 +130,129 @@
       Status: <span id="status" class="status ok">—</span>
       <span id="meta" style="margin-left:8px;color:var(--muted);font-size:12px"></span>
     </p>
-    <pre id="out">// hit Triage to see the JSON response</pre>
+    <pre id="out">// hit Analyze to see the JSON response</pre>
   </div>
 
   <div class="card">
     <h2>Other endpoints</h2>
     <p class="hint">
       <a href="/health" target="_blank">GET /health</a> ·
-      <a href="/sort-ticket" target="_blank">POST /sort-ticket</a> ·
-      <a href="/openapi.json" target="_blank">/openapi.json</a> (OpenAPI schema)
+      <a href="/analyze-ticket" target="_blank">POST /analyze-ticket</a>
     </p>
   </div>
 </main>
 
-<footer>QueueStorm · bKash × SUST CSE Carnival 2026</footer>
+<footer>QueueStorm Investigator · SUST CSE Carnival 2026 · Codex Community Hackathon</footer>
 
 <script>
-  const $ = (s) => document.querySelector(s);
+const $ = (s) => document.querySelector(s);
+$('#origin').textContent = location.origin;
 
-  // Show the live origin so the user knows exactly which backend they hit.
-  $('#origin').textContent = location.origin;
+// ---- Sample cases (all 10 from the public pack) ----
+const SAMPLES = [
+  { id: 'S01', label: 'Wrong Transfer (match)', ticket_id: 'TKT-001', complaint: "I sent 5000 taka to a wrong number around 2pm today. The number was supposed to be 01712345678 but I think I typed it wrong. The person isn't responding to my call. Please help me get my money back.", language: 'en', channel: 'in_app_chat', user_type: 'customer', txn: [{"transaction_id":"TXN-9101","timestamp":"2026-04-14T14:08:22Z","type":"transfer","amount":5000,"counterparty":"+8801719876543","status":"completed"},{"transaction_id":"TXN-9087","timestamp":"2026-04-13T18:12:00Z","type":"cash_in","amount":10000,"counterparty":"AGENT-512","status":"completed"}] },
+  { id: 'S02', label: 'Wrong Transfer (inconsistent)', ticket_id: 'TKT-002', complaint: "I sent 2000 to the wrong person by mistake. Please reverse it.", language: 'en', channel: 'in_app_chat', user_type: 'customer', txn: [{"transaction_id":"TXN-9202","timestamp":"2026-04-14T11:30:00Z","type":"transfer","amount":2000,"counterparty":"+8801812345678","status":"completed"},{"transaction_id":"TXN-9180","timestamp":"2026-04-10T09:15:00Z","type":"transfer","amount":2500,"counterparty":"+8801812345678","status":"completed"},{"transaction_id":"TXN-9145","timestamp":"2026-04-05T17:45:00Z","type":"transfer","amount":1500,"counterparty":"+8801812345678","status":"completed"}] },
+  { id: 'S03', label: 'Payment Failed', ticket_id: 'TKT-003', complaint: "I tried to pay 1200 taka for my mobile recharge but the app showed failed. But my balance was deducted! Please refund my money.", language: 'en', channel: 'in_app_chat', user_type: 'customer', txn: [{"transaction_id":"TXN-9301","timestamp":"2026-04-14T16:00:00Z","type":"payment","amount":1200,"counterparty":"MERCHANT-MOBILE-OP","status":"failed"}] },
+  { id: 'S04', label: 'Refund Request', ticket_id: 'TKT-004', complaint: "I paid 500 to a merchant for a product but I changed my mind and don't want it anymore. Please refund my 500 taka.", language: 'en', channel: 'in_app_chat', user_type: 'customer', txn: [{"transaction_id":"TXN-9401","timestamp":"2026-04-14T13:00:00Z","type":"payment","amount":500,"counterparty":"MERCHANT-7821","status":"completed"}] },
+  { id: 'S05', label: 'Phishing Report', ticket_id: 'TKT-005', complaint: "Someone called me saying they are from bKash and asked for my OTP. They said my account will be blocked if I don't share it. Is this real? I haven't shared anything yet.", language: 'en', channel: 'call_center', user_type: 'customer', txn: [] },
+  { id: 'S06', label: 'Vague Complaint', ticket_id: 'TKT-006', complaint: "Something is wrong with my money. Please check.", language: 'en', channel: 'in_app_chat', user_type: 'customer', txn: [{"transaction_id":"TXN-9601","timestamp":"2026-04-13T10:00:00Z","type":"cash_in","amount":3000,"counterparty":"AGENT-220","status":"completed"},{"transaction_id":"TXN-9602","timestamp":"2026-04-12T15:30:00Z","type":"transfer","amount":800,"counterparty":"+8801911223344","status":"completed"}] },
+  { id: 'S07', label: 'Cash-In (Bangla)', ticket_id: 'TKT-007', complaint: "আমি আজ সকালে এজেন্টের কাছে ২০০০ টাকা ক্যাশ ইন করেছি কিন্তু আমার ব্যালেন্সে টাকা আসেনি। এজেন্ট বলছে টাকা পাঠিয়েছে কিন্তু আমি দেখছি না।", language: 'bn', channel: 'call_center', user_type: 'customer', txn: [{"transaction_id":"TXN-9701","timestamp":"2026-04-14T09:30:00Z","type":"cash_in","amount":2000,"counterparty":"AGENT-318","status":"pending"}] },
+  { id: 'S08', label: 'Ambiguous Match', ticket_id: 'TKT-008', complaint: "I sent 1000 to my brother yesterday but he says he didn't get it. Please check.", language: 'en', channel: 'in_app_chat', user_type: 'customer', txn: [{"transaction_id":"TXN-9801","timestamp":"2026-04-13T11:20:00Z","type":"transfer","amount":1000,"counterparty":"+8801712001122","status":"completed"},{"transaction_id":"TXN-9802","timestamp":"2026-04-13T19:45:00Z","type":"transfer","amount":1000,"counterparty":"+8801812334455","status":"completed"},{"transaction_id":"TXN-9803","timestamp":"2026-04-13T20:10:00Z","type":"transfer","amount":1000,"counterparty":"+8801712001122","status":"failed"}] },
+  { id: 'S09', label: 'Merchant Settlement', ticket_id: 'TKT-009', complaint: "I am a merchant. My yesterday's sales of 15000 taka have not been settled to my account. Settlement usually happens by 11am next day. Please check.", language: 'en', channel: 'merchant_portal', user_type: 'merchant', txn: [{"transaction_id":"TXN-9901","timestamp":"2026-04-13T18:00:00Z","type":"settlement","amount":15000,"counterparty":"MERCHANT-SELF","status":"pending"}] },
+  { id: 'S10', label: 'Duplicate Payment', ticket_id: 'TKT-010', complaint: "I paid my electricity bill 850 taka but it deducted twice from my account. Please check, I only paid once.", language: 'en', channel: 'in_app_chat', user_type: 'customer', txn: [{"transaction_id":"TXN-10001","timestamp":"2026-04-14T08:15:30Z","type":"payment","amount":850,"counterparty":"BILLER-DESCO","status":"completed"},{"transaction_id":"TXN-10002","timestamp":"2026-04-14T08:15:42Z","type":"payment","amount":850,"counterparty":"BILLER-DESCO","status":"completed"}] },
+];
 
-  function pretty(obj) {
-    return JSON.stringify(obj, null, 2);
-  }
-
-  async function triage() {
-    const payload = {
-      ticket_id: $('#ticket_id').value || 'T-001',
-      channel:   $('#channel').value || undefined,
-      locale:    $('#locale').value || undefined,
-      message:   $('#message').value.trim(),
-    };
-    if (!payload.message) { alert('message is required'); return; }
-
-    const btn = $('#runBtn');
-    btn.disabled = true; btn.textContent = 'Triaging…';
-
-    const status = $('#status'), meta = $('#meta'), out = $('#out');
-    status.className = 'status'; status.textContent = '…';
-    out.textContent = 'POST ' + location.origin + '/sort-ticket\n\n' + pretty(payload);
-
-    const t0 = performance.now();
-    try {
-      const res = await fetch('/sort-ticket', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      const ms = Math.round(performance.now() - t0);
-      let body;
-      try { body = await res.json(); } catch { body = { detail: 'non-JSON response' }; }
-
-      status.textContent = res.status + ' ' + res.statusText;
-      status.className = 'status ' + (res.ok ? 'ok' : 'err');
-      meta.textContent = ms + ' ms';
-      out.textContent = pretty(body);
-    } catch (e) {
-      status.textContent = 'NETWORK ERROR';
-      status.className = 'status err';
-      out.textContent = String(e);
-    } finally {
-      btn.disabled = false; btn.textContent = 'Triage ▸';
-    }
-  }
-
-  $('#runBtn').onclick = triage;
-  $('#resetBtn').onclick = () => {
-    $('#ticket_id').value = 'T-001';
-    $('#channel').value = '';
-    $('#locale').value = '';
-    $('#message').value = 'I sent 5000 taka to a wrong number this morning, please help me get it back';
-    $('#status').textContent = '—';
-    $('#status').className = 'status ok';
-    $('#meta').textContent = '';
-    $('#out').textContent = '// hit Triage to see the JSON response';
+// Build sample bar
+const bar = $('#sampleBar');
+SAMPLES.forEach((s, i) => {
+  const btn = document.createElement('button');
+  btn.className = 'sample-btn';
+  btn.textContent = s.label;
+  btn.onclick = () => {
+    document.querySelectorAll('.sample-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    $('#ticket_id').value = s.ticket_id;
+    $('#language').value = s.language || '';
+    $('#channel').value = s.channel || '';
+    $('#user_type').value = s.user_type || '';
+    $('#complaint').value = s.complaint;
+    $('#txn_history').value = JSON.stringify(s.txn, null, 2);
   };
+  bar.appendChild(btn);
+});
 
-  // Ctrl/Cmd+Enter shortcut
-  document.addEventListener('keydown', (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') triage();
-  });
+function pretty(obj) { return JSON.stringify(obj, null, 2); }
+
+async function analyze() {
+  let txnHistory = [];
+  try {
+    const raw = $('#txn_history').value.trim();
+    if (raw && raw !== '[]') txnHistory = JSON.parse(raw);
+  } catch (e) {
+    alert('Invalid JSON in transaction_history: ' + e.message);
+    return;
+  }
+
+  const payload = {
+    ticket_id: $('#ticket_id').value || 'TKT-001',
+    complaint: $('#complaint').value.trim(),
+    language: $('#language').value || undefined,
+    channel: $('#channel').value || undefined,
+    user_type: $('#user_type').value || undefined,
+    transaction_history: txnHistory,
+  };
+  if (!payload.complaint) { alert('complaint is required'); return; }
+
+  // Clean undefined fields
+  Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
+
+  const btn = $('#runBtn');
+  btn.disabled = true; btn.textContent = 'Analyzing…';
+
+  const status = $('#status'), meta = $('#meta'), out = $('#out');
+  status.className = 'status'; status.textContent = '…';
+
+  const t0 = performance.now();
+  try {
+    const res = await fetch('/analyze-ticket', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const ms = Math.round(performance.now() - t0);
+    let body;
+    try { body = await res.json(); } catch { body = { detail: 'non-JSON response' }; }
+
+    status.textContent = res.status + ' ' + res.statusText;
+    status.className = 'status ' + (res.ok ? 'ok' : 'err');
+    meta.textContent = ms + ' ms';
+    out.textContent = pretty(body);
+  } catch (e) {
+    status.textContent = 'NETWORK ERROR';
+    status.className = 'status err';
+    out.textContent = String(e);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Analyze ▸';
+  }
+}
+
+$('#runBtn').onclick = analyze;
+$('#resetBtn').onclick = () => {
+  document.querySelectorAll('.sample-btn').forEach(b => b.classList.remove('active'));
+  $('#ticket_id').value = 'TKT-001';
+  $('#language').value = 'en';
+  $('#channel').value = 'in_app_chat';
+  $('#user_type').value = 'customer';
+  $('#complaint').value = 'I sent 5000 taka to a wrong number around 2pm today. Please help me get my money back.';
+  $('#txn_history').value = '[\n  {"transaction_id":"TXN-9101","timestamp":"2026-04-14T14:08:22Z","type":"transfer","amount":5000,"counterparty":"+8801719876543","status":"completed"}\n]';
+  $('#status').textContent = '—'; $('#status').className = 'status ok';
+  $('#meta').textContent = '';
+  $('#out').textContent = '// hit Analyze to see the JSON response';
+};
+
+document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') analyze();
+});
 </script>
 </body>
 </html>

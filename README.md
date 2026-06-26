@@ -1,199 +1,247 @@
-# QueueStorm — Customer Support Ticket Triage
+# QueueStorm Investigator — Customer Support Ticket Triage
 
-> **bKash × SUST CSE Carnival 2026 — Codex Community Hackathon**
-> Mock Preliminary round submission.
+> **SUST CSE Carnival 2026 — Codex Community Hackathon**
+> Online Preliminary Round Submission
 
-A small, fast, deterministic web service that reads one customer support
-message and instantly answers:
+An AI/API service that reads a customer support complaint along with the customer's recent transaction history, investigates the evidence, classifies the issue, routes it to the right department, and drafts a safe reply — all without requesting any sensitive credentials.
 
-1. **What kind of problem is it?** (`wrong_transfer`, `payment_failed`,
-   `refund_request`, `phishing_or_social_engineering`, `other`)
-2. **How serious?** (`low`, `medium`, `high`, `critical`)
-3. **Which team should handle it?** (`customer_support`,
-   `dispute_resolution`, `payments_ops`, `fraud_risk`)
-4. **A one-sentence summary an agent can read in two seconds.**
-5. **Does it need a human to review immediately?**
+**Key capabilities:**
+- 🔍 **Evidence reasoning** — matches complaint against transaction history, detects inconsistencies
+- 🏷️ **8 case types** — wrong_transfer, payment_failed, refund_request, duplicate_payment, merchant_settlement_delay, agent_cash_in_issue, phishing_or_social_engineering, other
+- 🛡️ **Safety-first** — never asks for PIN/OTP/password, never promises unauthorized refunds
+- 🌐 **Bangla support** — handles Bangla (bn) and mixed (Banglish) complaints with Bangla replies
+- ⚡ **Sub-5ms response** — pure rule-based, no LLM, no external API calls
 
-The response is also guaranteed to **never** ask the customer to share
-a PIN, OTP, password, or full card number — a hard safety rule that the
-grader explicitly checks.
-
-Backend: **Node.js 20 + Express + Zod**. No LLM, no external services.
+Backend: **Node.js 20 + Express + Zod**. No LLM, no external services, fully deterministic.
 
 ---
 
-## Live demo
+## Live Demo
 
 🚀 **Deployed on Render:** <https://devoops.onrender.com/>
 
-The service is live and exposes:
-
-| Endpoint        | Method | Purpose                                          |
-|-----------------|--------|--------------------------------------------------|
-| `/`             | GET    | API tester UI (built-in ticket playground)       |
-| `/health`       | GET    | Liveness probe — must respond within 10s         |
-| `/sort-ticket`  | POST   | Classify one ticket — must respond within 30s    |
-
-Try it now:
-
-- UI:  <https://devoops.onrender.com/>
-- API: <https://devoops.onrender.com/sort-ticket>
-- Health: <https://devoops.onrender.com/health>
+| Endpoint           | Method | Purpose                                       |
+|--------------------|--------|-----------------------------------------------|
+| `/`                | GET    | Interactive API tester UI                     |
+| `/health`          | GET    | Liveness probe — returns `{"status":"ok"}`    |
+| `/analyze-ticket`  | POST   | Analyze one ticket — the main API endpoint    |
 
 ---
 
-## Quick start (local)
+## Quick Start (Local)
 
 ```bash
-# 1. clone
+# 1. Clone
 git clone https://github.com/usaben/DevOops
 cd DevOops
 
-# 2. install
+# 2. Install
 npm install
 
-# 3. run
+# 3. Run
 npm start
-# or: node server.js
+# Server starts on http://localhost:8000
 ```
 
-The server listens on `process.env.PORT` (defaults to `3000`).
-Open the API tester at <http://localhost:3000/>.
+The server listens on `process.env.PORT` (defaults to `8000`) and binds to `0.0.0.0`.
 
-### Smoke test the API
-
-```bash
-curl -s http://localhost:3000/health
-```
+### Smoke Test
 
 ```bash
-curl -s -X POST http://localhost:3000/sort-ticket \
+# Health check
+curl -s http://localhost:8000/health
+# → {"status":"ok","service":"queuestorm","version":"2.0.0","uptime_seconds":5}
+
+# Analyze a ticket
+curl -s -X POST http://localhost:8000/analyze-ticket \
   -H "Content-Type: application/json" \
   -d '{
-    "ticket_id": "T-001",
-    "channel": "app",
-    "locale": "en",
-    "message": "I sent 3000 to wrong number"
+    "ticket_id": "TKT-001",
+    "complaint": "I sent 5000 taka to a wrong number around 2pm today.",
+    "language": "en",
+    "channel": "in_app_chat",
+    "user_type": "customer",
+    "transaction_history": [
+      {
+        "transaction_id": "TXN-9101",
+        "timestamp": "2026-04-14T14:08:22Z",
+        "type": "transfer",
+        "amount": 5000,
+        "counterparty": "+8801719876543",
+        "status": "completed"
+      }
+    ]
   }'
 ```
 
-Expected response:
+### Sample Output (SAMPLE-01)
 
 ```json
 {
-  "ticket_id": "T-001",
+  "ticket_id": "TKT-001",
+  "relevant_transaction_id": "TXN-9101",
+  "evidence_verdict": "consistent",
   "case_type": "wrong_transfer",
   "severity": "high",
   "department": "dispute_resolution",
-  "agent_summary": "Customer reports sending 3000 to the wrong recipient and requests recovery of the funds.",
-  "human_review_required": false,
-  "confidence": 0.95,
-  "signals": ["wt.amount_keywords", "wt.wrong_number"]
+  "agent_summary": "Customer reports sending 5000 BDT via TXN-9101 to +8801719876543, which they believe was the wrong recipient.",
+  "recommended_next_action": "Verify TXN-9101 details with the customer and initiate the wrong-transfer dispute workflow per policy.",
+  "customer_reply": "We have noted your concern about transaction TXN-9101. Please do not share your PIN or OTP with anyone. Our dispute team will review the case and contact you through official support channels.",
+  "human_review_required": true,
+  "confidence": 1,
+  "reason_codes": ["wrong_transfer", "transaction_match"]
 }
 ```
 
 ---
 
-## API reference
-
-### `POST /sort-ticket`
-
-**Request body** — JSON:
-
-| Field       | Type   | Required | Notes                                                            |
-|-------------|--------|----------|------------------------------------------------------------------|
-| `ticket_id` | string | yes      | Echoed back in the response.                                     |
-| `channel`   | string | optional | One of: `app`, `sms`, `call_center`, `merchant_portal`.          |
-| `locale`    | string | optional | One of: `bn`, `en`, `mixed`.                                     |
-| `message`   | string | yes      | Free-text customer complaint (1–4000 chars, trimmed).            |
-
-**Response body** — JSON:
-
-| Field                   | Type    | Notes                                                              |
-|-------------------------|---------|--------------------------------------------------------------------|
-| `ticket_id`             | string  | Echoes the request value.                                          |
-| `case_type`             | enum    | `wrong_transfer` \| `payment_failed` \| `refund_request` \| `phishing_or_social_engineering` \| `other`. |
-| `severity`              | enum    | `low` \| `medium` \| `high` \| `critical`.                          |
-| `department`            | enum    | `customer_support` \| `dispute_resolution` \| `payments_ops` \| `fraud_risk`. |
-| `agent_summary`         | string  | 1–2 neutral sentences. **Never** asks for credentials.             |
-| `human_review_required` | boolean | `true` for phishing or critical.                                   |
-| `confidence`            | number  | Float in `[0, 1]`.                                                 |
-| `signals`               | array   | Debug list of which keyword signals fired.                         |
-
-**Error codes:** `422` for validation errors (Zod issues returned in `details`).
-All errors return JSON.
+## API Reference
 
 ### `GET /health`
 
+Returns `{"status":"ok"}` to confirm the service is alive.
+
 ```json
 {
-  "status": "healthy",
+  "status": "ok",
   "service": "queuestorm",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "uptime_seconds": 12
 }
 ```
 
+### `POST /analyze-ticket`
+
+**Request body** — JSON:
+
+| Field                | Type   | Required | Notes                                                              |
+|----------------------|--------|----------|--------------------------------------------------------------------|
+| `ticket_id`          | string | yes      | Echoed back in the response.                                       |
+| `complaint`          | string | yes      | Customer complaint text (1–8000 chars, trimmed).                   |
+| `language`           | string | optional | One of: `en`, `bn`, `mixed`.                                      |
+| `channel`            | string | optional | One of: `in_app_chat`, `call_center`, `email`, `merchant_portal`, `field_agent`. |
+| `user_type`          | string | optional | One of: `customer`, `merchant`, `agent`, `unknown`.                |
+| `campaign_context`   | string | optional | Campaign identifier from the harness.                              |
+| `transaction_history`| array  | optional | Array of transaction objects (see below). May be empty.            |
+| `metadata`           | object | optional | Additional context from the harness.                               |
+
+**Transaction history entry:**
+
+| Field            | Type   | Description                                                          |
+|------------------|--------|----------------------------------------------------------------------|
+| `transaction_id` | string | Unique transaction identifier.                                       |
+| `timestamp`      | string | ISO 8601 timestamp.                                                  |
+| `type`           | string | One of: `transfer`, `payment`, `cash_in`, `cash_out`, `settlement`, `refund`. |
+| `amount`         | number | Amount in BDT.                                                       |
+| `counterparty`   | string | Recipient phone, merchant ID, or agent ID.                           |
+| `status`         | string | One of: `completed`, `failed`, `pending`, `reversed`.                |
+
+**Response body** — JSON:
+
+| Field                    | Type    | Required | Description                                                          |
+|--------------------------|---------|----------|----------------------------------------------------------------------|
+| `ticket_id`              | string  | yes      | Echoes the request value.                                            |
+| `relevant_transaction_id`| string/null | yes | Transaction ID the complaint refers to, or `null` if none matches.   |
+| `evidence_verdict`       | enum    | yes      | `consistent`, `inconsistent`, or `insufficient_data`.                |
+| `case_type`              | enum    | yes      | From the taxonomy below.                                             |
+| `severity`               | enum    | yes      | `low`, `medium`, `high`, or `critical`.                              |
+| `department`             | enum    | yes      | From the department taxonomy below.                                  |
+| `agent_summary`          | string  | yes      | Concise agent-ready summary (1–2 sentences).                         |
+| `recommended_next_action`| string  | yes      | Suggested next step for the support agent.                           |
+| `customer_reply`         | string  | yes      | Safe official reply respecting all safety rules.                     |
+| `human_review_required`  | boolean | yes      | `true` for disputes, suspicious cases, ambiguous evidence.           |
+| `confidence`             | number  | optional | Float in `[0, 1]`.                                                   |
+| `reason_codes`           | array   | optional | Short labels supporting the decision.                                |
+
+**Error codes:** `422` for validation errors, `400` for malformed JSON, `500` for internal errors. All errors return JSON without leaking stack traces or secrets.
+
 ---
 
-## How it works
+## Case Type Taxonomy
 
-### 1. Rule-based classifier (in `server.js`)
+| case_type                       | Department              | Default Severity |
+|---------------------------------|-------------------------|------------------|
+| `wrong_transfer`                | `dispute_resolution`    | `high`           |
+| `payment_failed`               | `payments_ops`          | `high`           |
+| `refund_request`               | `customer_support`      | `low` (changed mind) / `medium` |
+| `duplicate_payment`            | `payments_ops`          | `high`           |
+| `merchant_settlement_delay`    | `merchant_operations`   | `medium`         |
+| `agent_cash_in_issue`          | `agent_operations`      | `high`           |
+| `phishing_or_social_engineering`| `fraud_risk`           | `critical`       |
+| `other`                        | `customer_support`      | `low`            |
 
-Pure regex, **no LLM**, **no external services**. Each class collects a
-weighted score from a catalogue of independent keyword/pattern signals.
-The winner is the class with the highest score (≥ 1.5 threshold); below
-that, the case is bucketed as `other`. Phishing is treated as
-safety-critical and triggers a hard fallback if a phishing request
-phrase is detected anywhere in the message.
+---
 
-| Case type                                       | Department          | Severity (default) |
-|-------------------------------------------------|---------------------|--------------------|
-| `wrong_transfer`                                | `dispute_resolution`| `high`             |
-| `payment_failed`                                | `payments_ops`      | `high`             |
-| `refund_request`                                | `dispute_resolution`| `low` if "changed my mind", else `medium` |
-| `phishing_or_social_engineering`                | `fraud_risk`        | `critical`         |
-| `other`                                         | `customer_support`  | `low`              |
+## How It Works
 
-- Phishing → always `critical`, always `human_review_required = true`.
-- High severity alone does **not** require human review (per spec).
-- Money amounts in the message are surfaced in the agent summary.
+### 1. Evidence Reasoning Engine (35% of score)
 
-### 2. Safety filter (in `server.js`)
+The service reads both the complaint text and transaction history. For each case:
 
-A separate pass guarantees that **`agent_summary` never contains the
-words PIN, OTP, password, CVV, or a 16-digit card number**. It:
+- **Extracts** claimed amount, counterparty, and time references from the complaint
+- **Matches** against transaction history by amount, type, status, counterparty, and recency
+- **Detects inconsistencies**: e.g., multiple prior transfers to the same "wrong number" recipient
+- **Handles ambiguity**: when multiple transactions match equally, returns `insufficient_data` and asks for clarification
+- **Detects duplicates**: identifies two identical payments within a short time window
+- **Returns** `relevant_transaction_id` and `evidence_verdict` (`consistent` / `inconsistent` / `insufficient_data`)
 
-1. Detects phishing/scam *request phrases* (e.g. "share your OTP",
-   "someone asking my pin") on the **original** message — scrubbing first
-   would destroy the tokens we need to match.
-2. Substitutes any remaining credential mention (card numbers, password
-   values, account numbers) with `[REDACTED]`.
-3. If a request phrase was detected, returns a hard-coded safe summary
-   and flags `case_type = phishing_or_social_engineering`.
+### 2. Rule-Based Classifier
 
-This is defence-in-depth: even if a future classifier or LLM misbehaves,
-the response cannot violate the safety rule.
+Pure regex signal scoring across 7 case type categories with 40+ weighted patterns. Supports English and Bangla keywords. Context boosting from transaction history (e.g., pending cash_in boosts `agent_cash_in_issue`). User type boosting (e.g., `merchant` boosts `merchant_settlement_delay`).
 
-### 3. API layer (Express + Zod)
+### 3. Safety Filter (20% of score)
 
-- Express 4 with permissive CORS so graders can hit it from anywhere.
-- Zod validates every request body. Failures return `422` with the
-  issue list.
-- `express.static` serves the tester UI from `/`.
-- Binds to `process.env.PORT` (Render/Railway/Fly all set this).
+Defence-in-depth safety system:
 
-### 4. Demo UI (`public/index.html`)
+- **Credential request detection**: blocks complaint text that asks for PIN/OTP/password (phishing)
+- **Customer reply validation**: ensures generated replies never request credentials (distinguishes "Do not share your PIN" warnings from requests)
+- **Unauthorized refund promise detection**: blocks "we will refund", "we'll reverse", etc.
+- **Prompt injection defence**: ignores instructions embedded in complaint text
+- **Text scrubbing**: redacts card numbers, credential values, and URLs from agent summaries
 
-A single-file HTML/CSS/JS page with:
+### 4. Customer Reply Generation
 
-- Ticket ID, channel, locale, and message inputs.
-- A **Triage** button that `POST`s to `/sort-ticket` and renders the
-  full response: case, severity, department, summary, review flag,
-  confidence, and matched signals.
-- A **Load sample** dropdown pre-filling the 5 PDF cases.
-- Pure vanilla JS, no build step, no external CDN. Calls the API via
-  a relative URL so it works on any host (localhost, Render, etc.).
+Generates contextual, safe replies per case type:
+- References specific transaction IDs when available
+- Uses safe language: "any eligible amount will be returned through official channels"
+- Responds in Bangla when `language === 'bn'`
+- Always includes a credential safety reminder
+
+---
+
+## Models
+
+**No LLM is used.** The classifier and evidence reasoning engine are pure JavaScript regex and scoring logic. The service:
+
+- Runs in microseconds (mean < 5ms per request)
+- Costs $0 in API calls
+- Is fully deterministic — same input always produces the same output
+- Has no GPU requirement
+- Has no external API dependency
+
+This design was chosen because:
+1. The task is solvable with rule-based logic for the preliminary round
+2. Deterministic behavior makes grading predictable
+3. Zero latency from external API calls
+4. Zero cost and zero quota concerns
+
+The codebase is LLM-ready: `.env.example` reserves keys (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`) for a future hybrid approach.
+
+---
+
+## Safety Logic
+
+### What the service NEVER does:
+1. **Never asks for PIN, OTP, password, CVV, or full card number** — the `validateSafetyOfReply()` function validates every generated `customer_reply` before returning it
+2. **Never promises a refund, reversal, account unblock, or recovery** — the `UNSAFE_REFUND_PATTERNS` array catches "we will refund", "we'll reverse", etc.
+3. **Never instructs users to contact suspicious third parties** — replies only guide to official support channels
+4. **Never leaks credentials in summaries** — `scrubText()` redacts card numbers, credential values, and URLs from `agent_summary`
+5. **Ignores prompt injection** — `sanitizeComplaint()` detects instructions embedded in complaint text
+
+### How it's enforced:
+- Safety checks run on the **original** complaint text before scrubbing (to detect phishing patterns)
+- Generated `customer_reply` is validated post-generation; if unsafe, a safe fallback is returned
+- Phishing complaints trigger a hard fallback with `case_type: 'phishing_or_social_engineering'`, `severity: 'critical'`, `department: 'fraud_risk'`
 
 ---
 
@@ -204,42 +252,29 @@ npm install
 npm test
 ```
 
-23 tests in 3 files (`node --test tests/*.js`):
+36 tests across 3 files:
 
-- `tests/test_classifier.js` — the 5 PDF public sample cases plus
-  phishing / refund / severity / human-review edge cases.
-- `tests/test_safety.js` — checks that the safety filter scrubs
-  dangerous phrasings, redacts card numbers, and leaves safe
-  summaries untouched.
-- `tests/test_api.js` — end-to-end tests of `/health`, `/sort-ticket`,
-  validation errors, and the static UI.
+- `tests/test_classifier.js` — All 10 public sample cases with exact field assertions + schema/enum validation
+- `tests/test_safety.js` — Credential scrubbing, refund promise detection, prompt injection, Bangla reply safety
+- `tests/test_api.js` — End-to-end `/health`, `/analyze-ticket`, validation errors, malformed input, safety checks
 
 ---
 
 ## Deployment
 
-The repo ships with config for **Render** (`render.yaml`), **Fly**
-(`fly.toml`), and **Railway / Heroku** (`Procfile`). All three bind to
-the `$PORT` environment variable.
-
 ### Render (recommended — free tier)
 
-1. Push this repo to GitHub.
+1. Push to GitHub.
 2. Sign in at <https://render.com> → **New** → **Blueprint**.
-3. Point it at this repo. Render auto-detects `render.yaml` and creates
-   the web service.
-4. Wait ~2 minutes. Your URL looks like
-   `https://devoops.onrender.com`.
+3. Point at this repo. Render auto-detects `render.yaml`.
+4. Wait ~2 minutes. URL: `https://devoops.onrender.com`.
 
-Manual alternative (without `render.yaml`):
+### Docker
 
-| Setting     | Value                              |
-|-------------|------------------------------------|
-| Runtime     | Node                                |
-| Build cmd   | `npm install`                       |
-| Start cmd   | `node server.js`                    |
-| Plan        | Free                                |
-| Health path | `/health`                           |
+```bash
+docker build -t queuestorm .
+docker run --rm -p 8000:8000 -e PORT=8000 queuestorm
+```
 
 ### Fly.io
 
@@ -250,63 +285,65 @@ fly deploy
 
 ### Railway
 
-Click **Deploy from GitHub** → select the repo → Railway auto-detects
-the `Procfile`. Set `PORT=3000` if it complains.
-
-### Docker (any host)
-
-```bash
-docker build -t queuestorm .
-docker run --rm -p 3000:3000 -e PORT=3000 queuestorm
-```
+Click **Deploy from GitHub** → select repo → Railway auto-detects `Procfile`.
 
 ---
 
-## Project structure
+## Project Structure
 
 ```
 DevOops/
-├── README.md                  ← this file
-├── package.json               ← Node deps + scripts
+├── README.md                                ← this file
+├── package.json                             ← Node deps + scripts
 ├── package-lock.json
-├── server.js                  ← Express app, classifier, safety, validation
-├── Dockerfile                 ← container image (node:20-slim)
-├── render.yaml                ← Render blueprint
-├── fly.toml                   ← Fly.io config
-├── Procfile                   ← Heroku / Railway
+├── server.js                                ← Express app, evidence reasoning, classifier, safety
+├── Dockerfile                               ← container image (node:20-slim)
+├── render.yaml                              ← Render blueprint
+├── fly.toml                                 ← Fly.io config
+├── Procfile                                 ← Heroku / Railway
+├── .env.example                             ← env var names (no real secrets)
+├── SUST_Preli_Sample_Cases.json             ← 10 public sample cases
+├── SUST_Hackathon_Preli_Problem_Statement.pdf
+├── SUST_Preli_Evaluation_Rubric_With_Explanations.pdf
+├── SUST_Preli_Team_Instructions_Manual.pdf
 ├── public/
-│   └── index.html             ← demo UI (single file, no build)
+│   └── index.html                           ← demo UI with all 10 sample cases
 └── tests/
-    ├── test_classifier.js     ← PDF public cases + edge cases
-    ├── test_safety.js         ← safety scrubber tests
-    └── test_api.js            ← end-to-end via http.createServer
+    ├── test_classifier.js                   ← 10 sample cases + schema tests
+    ├── test_safety.js                       ← safety filter tests
+    └── test_api.js                          ← end-to-end API tests
 ```
 
 ---
 
-## LLM usage
+## Known Limitations
 
-**No LLM is used.** The classifier is pure JavaScript regex, runs in
-microseconds, costs $0, and is fully deterministic — same input always
-produces the same output, which makes grader behaviour predictable.
-
-The codebase is LLM-ready: `.env.example` already reserves keys
-(`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`) for a future
-`classifyWithLlm()` hook, but no LLM call is made on the request path.
+1. **Bangla classification depth** — Bangla keyword coverage is narrower than English; some Bangla-only edge cases may fall through to `case_type: 'other'`
+2. **No fuzzy amount matching** — the service expects exact numeric amounts in the complaint; "around 5000" works, but "about five thousand" would not extract the amount
+3. **No cross-case-type reasoning** — each ticket is analyzed independently; patterns across multiple tickets from the same user are not considered
+4. **Timestamp matching** — relative time phrases like "around 2pm" are not parsed against transaction timestamps; matching relies on amount and type
+5. **Adversarial resilience** — while prompt injection is detected and handled, novel adversarial patterns may not trigger all safety checks
 
 ---
 
-## Constraints check
+## Constraints Check
 
 | Spec rule                                   | Status |
 |---------------------------------------------|--------|
-| Public HTTPS endpoint                       | ✅ Render / Fly / Railway all serve HTTPS by default |
-| `/health` responds within 10s               | ✅ No I/O on the path; mean ~1ms |
-| `/sort-ticket` responds within 30s          | ✅ Pure CPU regex, mean <5ms |
+| Public HTTPS endpoint                       | ✅ Render serves HTTPS by default |
+| `/health` returns `{"status":"ok"}` within 60s | ✅ Returns immediately, mean ~1ms |
+| `/analyze-ticket` responds within 30s       | ✅ Pure CPU regex, mean <5ms |
 | No GPU dependency                           | ✅ None |
 | No secrets in the repository                | ✅ Only `.env.example`; `.env` is git-ignored |
-| `agent_summary` never asks for PIN/OTP/password/card number | ✅ Safety filter is a hard guarantee |
-| Public sample cases produce expected `case_type` + `severity` | ✅ covered in `tests/test_classifier.js` |
+| All required response fields present        | ✅ 10 required + 2 optional fields |
+| Enum values match exactly                   | ✅ Tested in `test_classifier.js` |
+| `customer_reply` never asks for PIN/OTP     | ✅ Validated by `validateSafetyOfReply()` |
+| `customer_reply` never promises refund      | ✅ Checked by `UNSAFE_REFUND_PATTERNS` |
+| Evidence reasoning with transaction_history | ✅ Full evidence engine in `findRelevantTransaction()` |
+| All 10 public sample cases pass             | ✅ Covered in `test_classifier.js` |
+| Handles empty transaction_history           | ✅ Returns `insufficient_data` |
+| Handles malformed input without crashing    | ✅ Returns 400/422 with safe error message |
+| Bangla complaint handling                   | ✅ Bangla keywords + Bangla reply |
 
 ---
 

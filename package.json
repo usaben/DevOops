@@ -1,12 +1,12 @@
 {
   "name": "queuestorm",
-  "version": "1.0.0",
-  "description": "Customer support ticket triage microservice (Node.js + Express)",
+  "version": "2.0.0",
+  "description": "QueueStorm Investigator — AI/API service for customer support ticket triage (SUST CSE Carnival 2026)",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "test": "node --test tests/*.js"
+    "test": "node --test tests/test_classifier.js tests/test_safety.js tests/test_api.js"
   },
   "engines": {
     "node": ">=20.0.0"
@@ -16,4 +16,4 @@
     "express": "^4.21.2",
     "zod": "^3.23.8"
   }
-}
+}
