@@ -993,6 +993,14 @@ app.use((req, res) => {
   res.status(404).json({ error: 'not_found', path: req.path });
 });
 
+// Global error handler (prevents HTML stack traces from express.json)
+app.use((err, req, res, next) => {
+  if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+    return res.status(400).json({ error: 'bad_request', message: 'Malformed JSON payload.' });
+  }
+  return res.status(500).json({ error: 'internal_error', message: 'An internal error occurred.' });
+});
+
 // ---------------------------------------------------------------------------
 // Start
 // ---------------------------------------------------------------------------
