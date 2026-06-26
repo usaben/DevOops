@@ -1,17 +1,17 @@
-FROM python:3.12-slim
+ FROM node:20-slim
 
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1
+ENV NODE_ENV=production \
+    NPM_CONFIG_LOGLEVEL=warn
 
 WORKDIR /app
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY package.json ./
+RUN npm install --omit=dev
 
-COPY app ./app
+COPY server.js ./
+COPY public ./public
 
 EXPOSE 8000
 
 # Render / Railway / Fly: bind to $PORT (defaults to 8000)
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+CMD ["sh", "-c", "node server.js"]

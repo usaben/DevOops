@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>QueueStorm — API Tester</title>
+<style>
+  :root {
+    --bg:#0b0d12; --panel:#131722; --panel2:#1a2030; --border:#232a3d;
+    --text:#e7ecf3; --muted:#93a0b8; --accent:#e2136e; --ok:#2ecc71;
+    --warn:#f1c40f; --danger:#ff5252; --code:#0d1018;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--text);
+    font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;line-height:1.5}
+  header{padding:32px 24px 16px;text-align:center;border-bottom:1px solid var(--border)}
+  h1{margin:0;font-size:24px;letter-spacing:-.02em}
+  h1 span{color:var(--accent)}
+  main{max-width:880px;margin:0 auto;padding:24px}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:18px}
+  .card h2{margin:0 0 6px;font-size:16px}
+  .card p.hint{margin:0 0 14px;color:var(--muted);font-size:13px}
+  label{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px;
+    font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+  input,textarea{width:100%;background:var(--panel2);color:var(--text);
+    border:1px solid var(--border);border-radius:8px;padding:10px;font:inherit;outline:none}
+  input:focus,textarea:focus{border-color:var(--accent)}
+  textarea{min-height:120px;resize:vertical;font-family:Consolas,monospace;font-size:13px}
+  .row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+  @media(max-width:560px){.row{grid-template-columns:1fr}}
+  .btn{appearance:none;border:0;cursor:pointer;padding:11px 16px;border-radius:8px;
+    font-weight:600;font-size:14px;background:var(--accent);color:#fff;margin-top:14px}
+  .btn:disabled{opacity:.6;cursor:not-allowed}
+  .btn.ghost{background:transparent;color:var(--muted);border:1px solid var(--border);margin-left:8px}
+  pre{background:var(--code);border:1px solid var(--border);border-radius:8px;
+    padding:12px;font-size:12.5px;overflow:auto;max-height:360px;margin:0}
+  .status{display:inline-block;padding:3px 9px;border-radius:999px;font-size:12px;font-weight:600}
+  .status.ok{background:rgba(46,204,113,.15);color:var(--ok)}
+  .status.err{background:rgba(255,82,82,.15);color:var(--danger)}
+  footer{text-align:center;color:var(--muted);font-size:12px;padding:20px}
+  code{background:var(--panel2);padding:1px 5px;border-radius:4px}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Queue<span>Storm</span> · API Tester</h1>
+  <p style="margin:6px 0 0;color:var(--muted);font-size:13.5px">
+    Live endpoint: <code id="origin"></code>
+  </p>
+</header>
+
+<main>
+  <div class="card">
+    <h2>POST /sort-ticket</h2>
+    <p class="hint">Send one ticket to the live backend. The page calls the same host so it works whether you run locally or on Render.</p>
+
+    <div class="row">
+      <div>
+        <label>ticket_id</label>
+        <input id="ticket_id" value="T-001" />
+      </div>
+      <div>
+        <label>channel</label>
+        <select id="channel" style="width:100%;background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px">
+          <option value="">—</option><option value="app">app</option>
+          <option value="sms">sms</option><option value="call_center">call_center</option>
+          <option value="merchant_portal">merchant_portal</option>
+        </select>
+      </div>
+      <div>
+        <label>locale</label>
+        <select id="locale" style="width:100%;background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px">
+          <option value="">—</option><option value="en">en</option>
+          <option value="bn">bn</option><option value="mixed">mixed</option>
+        </select>
+      </div>
+    </div>
+
+    <label>message</label>
+    <textarea id="message">I sent 5000 taka to a wrong number this morning, please help me get it back</textarea>
+
+    <button class="btn" id="runBtn">Triage ▸</button>
+    <button class="btn ghost" id="resetBtn">Reset</button>
+  </div>
+
+  <div class="card">
+    <h2>Response</h2>
+    <p class="hint">
+      Status: <span id="status" class="status ok">—</span>
+      <span id="meta" style="margin-left:8px;color:var(--muted);font-size:12px"></span>
+    </p>
+    <pre id="out">// hit Triage to see the JSON response</pre>
+  </div>
+
+  <div class="card">
+    <h2>Other endpoints</h2>
+    <p class="hint">
+      <a href="/health" target="_blank">GET /health</a> ·
+      <a href="/sort-ticket" target="_blank">POST /sort-ticket</a> ·
+      <a href="/openapi.json" target="_blank">/openapi.json</a> (OpenAPI schema)
+    </p>
+  </div>
+</main>
+
+<footer>QueueStorm · bKash × SUST CSE Carnival 2026</footer>
+
+<script>
+  const $ = (s) => document.querySelector(s);
+
+  // Show the live origin so the user knows exactly which backend they hit.
+  $('#origin').textContent = location.origin;
+
+  function pretty(obj) {
+    return JSON.stringify(obj, null, 2);
+  }
+
+  async function triage() {
+    const payload = {
+      ticket_id: $('#ticket_id').value || 'T-001',
+      channel:   $('#channel').value || undefined,
+      locale:    $('#locale').value || undefined,
+      message:   $('#message').value.trim(),
+    };
+    if (!payload.message) { alert('message is required'); return; }
+
+    const btn = $('#runBtn');
+    btn.disabled = true; btn.textContent = 'Triaging…';
+
+    const status = $('#status'), meta = $('#meta'), out = $('#out');
+    status.className = 'status'; status.textContent = '…';
+    out.textContent = 'POST ' + location.origin + '/sort-ticket\n\n' + pretty(payload);
+
+    const t0 = performance.now();
+    try {
+      const res = await fetch('/sort-ticket', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const ms = Math.round(performance.now() - t0);
+      let body;
+      try { body = await res.json(); } catch { body = { detail: 'non-JSON response' }; }
+
+      status.textContent = res.status + ' ' + res.statusText;
+      status.className = 'status ' + (res.ok ? 'ok' : 'err');
+      meta.textContent = ms + ' ms';
+      out.textContent = pretty(body);
+    } catch (e) {
+      status.textContent = 'NETWORK ERROR';
+      status.className = 'status err';
+      out.textContent = String(e);
+    } finally {
+      btn.disabled = false; btn.textContent = 'Triage ▸';
+    }
+  }
+
+  $('#runBtn').onclick = triage;
+  $('#resetBtn').onclick = () => {
+    $('#ticket_id').value = 'T-001';
+    $('#channel').value = '';
+    $('#locale').value = '';
+    $('#message').value = 'I sent 5000 taka to a wrong number this morning, please help me get it back';
+    $('#status').textContent = '—';
+    $('#status').className = 'status ok';
+    $('#meta').textContent = '';
+    $('#out').textContent = '// hit Triage to see the JSON response';
+  };
+
+  // Ctrl/Cmd+Enter shortcut
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') triage();
+  });
+</script>
+</body>
+</html>
